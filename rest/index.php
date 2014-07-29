@@ -83,68 +83,7 @@ class RestAPI {
 		}
 		return true;
 	}
- 
- 
-	// Print all promo codes in database
-    function redeem() {
-    // Check for required parameters
-    
-    
-    if (isset($_POST["push_app_id"]) && isset($_POST["code"]) && isset($_POST["device_id"])&&isset($_POST["PUSH_ID"])) {
- 
-		
-		
-        // Put parameters into local variables
-        $rw_app_id = $_POST["push_app_id"];
-        $code = $_POST["code"];
-        $device_id = $_POST["device_id"];
-		
- 
-        // Look up code in database
-        $user_id = 0;
-        $stmt = $this->db->prepare('SELECT id, unlock_code, uses_remaining FROM push_promo_code WHERE id=? AND code=?');
-        $stmt->bind_param("is", $push_apid, $code);
-        $stmt->execute();
-        $stmt->bind_result($id, $unlock_code, $uses_remaining);
-        while ($stmt->fetch()) {
-            break;
-        }
-        $stmt->close();
-		
-        // Bail if code doesn't exist
-        if ($id <= 0) {
-            sendResponse(400, 'Invalid code');
-            return false;
-        }
- 
-        // Bail if code already used		
-        if ($uses_remaining <= 0) {
-            sendResponse(403, 'Code already used');
-            return false;
-        }	
- 
-        // Check to see if this device already redeemed	
-        $stmt = $this->db->prepare('SELECT id FROM push_promo_code_redeemed WHERE device_id=? AND rw_promo_code_id=?');
-        $stmt->bind_param("si", $device_id, $id);
-        $stmt->execute();
-        $stmt->bind_result($redeemed_id);
-        while ($stmt->fetch()) {
-            break;
-        }
-        $stmt->close();
- 
-        // Bail if code already redeemed
-        if ($redeemed_id > 0) {
-            sendResponse(403, 'Code already used');
-            return false;
-        }
- 
-		
-    }
-    sendResponse(400, 'Invalid request');
-    return false;
-    }
-    
+
     /*
     *	getBeacon
     *
@@ -265,18 +204,62 @@ class RestAPI {
 	    return false;
     }
     
-    function getAllListings(){
+    function getAllusers(){
     	$json;
 	    if(isset($_GET["PUSH_ID"])){
 		    if(!$this->checkPushID($_GET["PUSH_ID"])){
 				sendResponse(400,json_encode($json));
 				return false;   
 		    }
-			include_once("listing_crud.php");
-			sendResponse(200, $json_data);
+		    $stmt = $this->db->prepare('SELECT id, username, name, business_name FROM user');
+		    $stmt->execute();
+			$stmt->bind_result($id,$username,$name,$business_name);
+			/* fetch values */
+			while ($stmt->fetch()) {
+				$output[]=array($id,$username,$name,$business_name);
+			}
+		    $stmt->close();	
+			// headers for not caching the results
+			header('Cache-Control: no-cache, must-revalidate');
+			header('Expires: Mon, 26 Jul 2001 05:00:00 GMT');
+			// headers to tell that result is JSON
+			header('Content-type: application/json');
+			sendResponse(200, json_encode($output));
 			return true;
 	    }
-	    sendResponse(400, "test");
+	    sendResponse(400, json_encode($output)); 	
+	    return false;
+    }
+    function addNewUser(){
+	    $json;
+		if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["password"])&&isset($_POST["name"])&&isset($_POST["email"])&&isset($_POST["business_name"])){
+		    if(!$this->checkPushID($_POST["PUSH_ID"])){
+				sendResponse(400,json_encode($json));
+				return false;   
+		    }
+		    $username = stripslashes(strip_tags($_POST["username"]));
+		    $password = md5(stripslashes(strip_tags($_POST["password"])));
+		    $email    = stripslashes(strip_tags($_POST["email"]));
+		    $name     = stripslashes(strip_tags($_POST["name"]));
+		    $business_name = stripcslashes(strip_tags($_POST["business_name"]));
+		    
+		    $stmt = $this->db->prepare("SELECT * FROM user WHERE username = ? OR name = ? OR email = ?");
+		    $stmt->bind_param("sss",$username,$name,$email);
+		    $stmt->execute();
+		    $stmt->store_result();
+		    $rows = $stmt->num_rows;
+		    if($rows>0){
+			    sendResponse(400, '-1');
+			    return false;
+		    }
+		    
+		    $stmt = $this->db->prepare('INSERT INTO user (username,password,name,email,business_name) values(?,?,?,?,?)');
+		    $stmt->bind_param("sssss",$username,$password,$name,$email,$business_name);
+		    $stmt->execute();
+			sendResponse(200, '1');
+			return true;
+	    }
+	    sendResponse(400, '0'); 	
 	    return false;
     }
     // end of RestAPI class
@@ -287,5 +270,4 @@ class RestAPI {
 $api = new RestAPI;
 $function = $_REQUEST["call"];
 $api->$function();
-
 
