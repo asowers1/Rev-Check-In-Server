@@ -203,7 +203,7 @@ class RestAPI {
 	    sendResponse(400, json_encode($output)); 	
 	    return false;
     }
-    
+
     function getAllusers(){
     	$json;
 	    if(isset($_GET["PUSH_ID"])){
@@ -230,6 +230,34 @@ class RestAPI {
 	    sendResponse(400, json_encode($output)); 	
 	    return false;
     }
+    
+    function login(){
+    	$json;
+	    if(isset($_GET["PUSH_ID"])&&isset($_GET["username"])&&isset($_GET["password"])){
+		    if(!$this->checkPushID($_GET["PUSH_ID"])){
+				sendResponse(400,json_encode($json));
+				return false;   
+		    }
+		    $username = stripslashes(strip_tags($_GET["username"]));
+		    $password = md5(stripslashes(strip_tags($_GET["password"])));
+		    $stmt = $this->db->prepare('SELECT * FROM user WHERE username = ? AND password = ?');
+		    $stmt->execute();
+		    $stmt->bind_param("ss",$username,$password);
+		    $stmt->execute();
+		    $stmt->store_result();
+		    $rows = $stmt->num_rows;
+		    if($rows>0){
+			    sendResponse(200, '1');
+			    return true;
+		    }
+		    sendResponse(400, '-1');
+			return false;
+		
+	    }
+	    sendResponse(400, '0'); 	
+	    return false;
+    }
+    
     function addNewUser(){
 	    $json;
 		if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["password"])&&isset($_POST["name"])&&isset($_POST["email"])&&isset($_POST["business_name"])){
@@ -256,6 +284,11 @@ class RestAPI {
 		    $stmt = $this->db->prepare('INSERT INTO user (username,password,name,email,business_name) values(?,?,?,?,?)');
 		    $stmt->bind_param("sssss",$username,$password,$name,$email,$business_name);
 		    $stmt->execute();
+
+		    $stmt = $this->db->prepare('INSERT INTO user_status (user_id,checked_in) values ((select id from user where username = ?), 0)');
+		    $stmt->bind_param("s",$username);
+		    $stmt->execute();
+
 			sendResponse(200, '1');
 			return true;
 	    }

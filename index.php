@@ -47,14 +47,15 @@
 				<?php
 					include("Mobile-Detect/Mobile_Detect.php");
 					$detect = new Mobile_Detect();
+					$deviceType = ($detect->isMobile() ? ($detect->isTablet() ? 'tablet' : 'phone') : 'computer');
 						// Check for any mobile device.
-						if ($detect->isMobile()){
+						if ($deviceType=='phone'){
 						
-							echo '<div class="col-lg-8 col-lg-offset-2"><h2>Rev Check-in</h2>';
+							echo '<div class="col-lg-8 col-lg-offset-2"><h2>Rev Check-in</h2><h3 style="color:#fff;">By Push Interactive, LLC</h3>';
 						}else
-							echo '<div class="col-lg-12"><h1>Rev Check-in</h1>';
+							echo '<div class="col-lg-12"><h1>Rev Check-in</h1><h2>By Push Interactive, LLC</h2>';
 					
-					?><h2>By Push Interactive, LLC</h2>
+					?>
 					<div class="spacer"></div>
 					<i class="fa fa-angle-down"></i>
 				</div>
@@ -70,17 +71,24 @@
 	        <p>Using iBeacons, there's no need to check in or out, the app does everything for you. It just works.</p>
       	</div>
       	<div class="col-lg-4">
-      		<p class="pull-right"><br><button type="button" class="btn btn-green">Download</button></p>
+      		<p class="pull-right"><br><button type="button" class="btn btn-green">Coming soon</button></p>
       	</div>
       </div><!-- /row -->
     </div><!-- /.container -->
     
-    <!-- PORTFOLIO SECTION -->
+<!-- PORTFOLIO SECTION -->
     <div id="portfolio">
     	<div class="container"
+    		<p><h2>Made with next generation technologies.</h2></p>
 	    	<div class="row mt">
 				<ul class="grid effect-2" id="grid">
-
+					<li><a href="http://hhvm.com"><img src="img/hhvm.png"></a></li>
+					<li><a href="http://hacklang.org"><img src="img/hack.png"></a></li>
+					<li><a href="http://www.ubuntu.com"><img src="img/ubuntu_logo.jpg"></a></li>
+					<li><a href="https://developer.apple.com/ibeacon/"><img src="img/beacon.jpg"></a></li>
+					<li><a href="https://developer.apple.com/swift/"><img src="img/swift.jpg"></a></li>
+					<li><center><a href="https://developer.apple.com/ios8/"><img src="img/ios8.png"></a></center></li>
+					
 				</ul>
 	    	</div><!-- row -->
 	    </div><!-- container -->
@@ -93,7 +101,7 @@
 			<div class="row">
 				<div class="col-lg-6 dg">
 					<h4 class="ml">THE DEVELOPER</h4>
-					<p class="centered"><a href="https://www.facebook.com/asowers1"><i class="fa fa-facebook"></i></a></p>
+					<p class="centered"><a href="http://www.linkedin.com/pub/andrew-sowers/4b/921/529/"><i class="fa fa-linkedin"></i></a></p>
 					<p class="ml">> Andrew Sowers</p>
 				</div>
 				<div class="col-lg-6 lg">
