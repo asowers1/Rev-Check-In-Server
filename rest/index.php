@@ -285,7 +285,11 @@ class RestAPI {
 		    $stmt->bind_param("sssss",$username,$password,$name,$email,$business_name);
 		    $stmt->execute();
 
-		    $stmt = $this->db->prepare('INSERT INTO user_status (user_id,checked_in) values ((select id from user where username = ?), 0)');
+		    $stmt = $this->db->prepare('INSERT INTO user_status (user_id,checked_in) values ((select id from user where username = ?),0)');
+		    $stmt->bind_param("s",$username);
+		    $stmt->execute();
+
+		    $stmt = $this->db->prepare('INSERT INTO user_device (user_id,device_id) values((SELECT id from user where username = ?),0');
 		    $stmt->bind_param("s",$username);
 		    $stmt->execute();
 
@@ -295,6 +299,25 @@ class RestAPI {
 	    sendResponse(400, '0'); 	
 	    return false;
     }
+
+    function linkDeviceToUser(){
+    	if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["device"])){
+    		if(!$this->checkPushID($_POST["PUSH_ID"])){
+				sendResponse(400,"-1");
+				return false;   
+		    }
+		    $username = stripslashes(strip_tags($_POST["username"]));
+		    $device   = stripslashes(strip_tags($_POST["device"]));
+		    $stmt = $this->db->prepare("UPDATE user_device SET device_id = ? WHERE user_id = (SELECT id FROM user WHERE username = ?)");
+		    $stmt->bind_param("ss",$username,$device);
+		    $stmt->execute();
+		    sendResponse(200, '1');
+		    return true;
+    	}
+    	sendResponse(400, '0');
+    	return false;
+    }
+	
     // end of RestAPI class
 }
  
