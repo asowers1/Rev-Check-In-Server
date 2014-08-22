@@ -149,27 +149,7 @@ class RestAPI {
 	    sendResponse(400, 0);
 	    return false;
     }
-    
-    /*
-    *	getListingDataFromBeacon
-    *
-    *	@PUSH_ID key for REST, @uuid beacon uuid, @major beacon major, @minor beacon minor
-    *
-    *	@return JSON object of listing data associated with the provided beacon
-    */
-    function getListingDataFromBeacon(){
-	    if(isset($_GET["uuid"])&&isset($_GET["major"])&&isset($_GET["minor"])&&isset($_GET["PUSH_ID"]))
-	    {
-		    if(!$this->checkPushID($_GET["PUSH_ID"])){
-				sendResponse(400, 'invalid code - ' . $_GET["PUSH_ID"]);
-				return false;
-			}
-			sendResponse(200,'OK');
-			return true;
-	    }
-	    sendResponse(400, 'Invalid param');
-		return false;
-    }
+
     /*
     *	getAllBeacons
     *
@@ -204,19 +184,19 @@ class RestAPI {
 	    return false;
     }
 
-    function getAllusers(){
+    function getAllUsers(){
     	$json;
 	    if(isset($_GET["PUSH_ID"])){
 		    if(!$this->checkPushID($_GET["PUSH_ID"])){
 				sendResponse(400,json_encode($json));
 				return false;   
 		    }
-		    $stmt = $this->db->prepare('SELECT id, username, name, business_name FROM user');
+		    $stmt = $this->db->prepare('SELECT username, name, role, email, phone, business_name, (SELECT timestamp FROM user_status WHERE user_id = (SELECT id FROM user WHERE username = username ) LIMIT 1), (SELECT state FROM user_status WHERE user_id = (SELECT id FROM user WHERE username = username ) LIMIT 1) FROM user');
 		    $stmt->execute();
-			$stmt->bind_result($id,$username,$name,$business_name);
+			$stmt->bind_result($username,$name,$role,$email,$phone,$business_name,$timestamp,$state);
 			/* fetch values */
 			while ($stmt->fetch()) {
-				$output[]=array($id,$username,$name,$business_name);
+				$output[]=array($username,$name,$role,$email,$phone,$business_name,$timestamp,$state);
 			}
 		    $stmt->close();	
 			// headers for not caching the results
@@ -259,8 +239,7 @@ class RestAPI {
     }
     
     function addNewUser(){
-	    $json;
-		if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["password"])&&isset($_POST["name"])&&isset($_POST["email"])&&isset($_POST["business_name"])){
+		if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["password"])&&isset($_POST["name"])&&isset($_POST["email"])&&isset($_POST["role"])&&isset($_POST["phone"])&&isset($_POST["code"])){
 		    if(!$this->checkPushID($_POST["PUSH_ID"])){
 				sendResponse(400,json_encode($json));
 				return false;   
@@ -269,29 +248,40 @@ class RestAPI {
 		    $password = md5(stripslashes(strip_tags($_POST["password"])));
 		    $email    = stripslashes(strip_tags($_POST["email"]));
 		    $name     = stripslashes(strip_tags($_POST["name"]));
-		    $business_name = stripcslashes(strip_tags($_POST["business_name"]));
-		    
-		    $stmt = $this->db->prepare("SELECT * FROM user WHERE username = ? OR name = ? OR email = ?");
+		    $phone	  = stripslashes(strip_tags($_POST["phone"]));
+		    $role     = stripslashes(strip_tags($_POST["role"]));
+		    $code     = stripslashes(strip_tags($_POST["code"]));
+		    $business = '';
+
+		    $stmt = $this->db->prepare("SELECT business_name FROM business WHERE business_code = ?");
+		    $stmt->bind_param("i",$code);
+		    $stmt->execute();
+		   	$stmt->bind_result($business_name);
+		   	if($stmt->fetch()){
+		   		$business = $business_name;
+		   	}
+		   	$stmt->close();
+		    $stmt = $this->db->prepare('SELECT * FROM user WHERE username = ? OR name = ? OR email = ?');
 		    $stmt->bind_param("sss",$username,$name,$email);
 		    $stmt->execute();
-		    $stmt->store_result();
-		    $rows = $stmt->num_rows;
-		    if($rows>0){
-			    sendResponse(400, '-1');
-			    return false;
+		    if($stmt->fetch()){
+		    	sendResponse(400,'-1');
+		    	return false;
 		    }
-		    
-		    $stmt = $this->db->prepare('INSERT INTO user (username,password,name,email,business_name) values(?,?,?,?,?)');
-		    $stmt->bind_param("sssss",$username,$password,$name,$email,$business_name);
+		    $stmt->close();
+		    $stmt = $this->db->prepare('INSERT INTO user (username,password,name,email,business_name,role,phone) values(?,?,?,?,?,?,?)');
+		    $stmt->bind_param("sssssss",$username,$password,$name,$email,$business,$role,$phone);
 		    $stmt->execute();
 
-		    $stmt = $this->db->prepare('INSERT INTO user_status (user_id,checked_in) values ((select id from user where username = ?),0)');
+		    $stmt = $this->db->prepare('INSERT INTO user_status (state,user_id) values (0,(select id from user where username = ?))');
 		    $stmt->bind_param("s",$username);
 		    $stmt->execute();
 
-		    $stmt = $this->db->prepare('INSERT INTO user_device (user_id,device_id) values((SELECT id from user where username = ?),0');
+		    $stmt = $this->db->prepare('INSERT INTO user_device (user_id,device_id) values((SELECT id from user where username = ?),0)');
 		    $stmt->bind_param("s",$username);
 		    $stmt->execute();
+
+
 
 			sendResponse(200, '1');
 			return true;
@@ -309,7 +299,25 @@ class RestAPI {
 		    $username = stripslashes(strip_tags($_POST["username"]));
 		    $device   = stripslashes(strip_tags($_POST["device"]));
 		    $stmt = $this->db->prepare("UPDATE user_device SET device_id = ? WHERE user_id = (SELECT id FROM user WHERE username = ?)");
-		    $stmt->bind_param("ss",$username,$device);
+		    $stmt->bind_param("ss",$device,$username);
+		    $stmt->execute();
+		    sendResponse(200, '1');
+		    return true;
+    	}
+    	sendResponse(400, '0');
+    	return false;
+    }
+
+    function updateUserState(){
+     	if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["state"])){
+    		if(!$this->checkPushID($_POST["PUSH_ID"])){
+				sendResponse(400,"-1");
+				return false;   
+		    }
+		    $username = stripslashes(strip_tags($_POST["username"]));
+		    $state    = stripslashes(strip_tags($_POST["state"]));
+		    $stmt = $this->db->prepare("UPDATE user_status SET checked_in = ? WHERE user_id = (SELECT id FROM user WHERE username = ?)");
+		    $stmt->bind_param("ss",$state,$username);
 		    $stmt->execute();
 		    sendResponse(200, '1');
 		    return true;
