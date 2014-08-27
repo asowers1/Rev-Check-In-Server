@@ -382,6 +382,40 @@ class RestAPI {
     }
 
     /*
+    *	setBusinessPicture
+	*
+	*	@super_global_param String: PUSH_ID, String: business_name, BLOB: uploadedfile
+	*
+	*	takes an image and assosiates it to a user in the database
+	*/
+    function setBusinessPicture(){
+     	if(isset($_GET["PUSH_ID"])&&isset($_GET["business_name"])){
+    		if(!$this->checkPushID($_GET["PUSH_ID"])){
+    			sendResponse(400,'-1');
+    			return false;
+    		}
+    		$business_name = stripslashes(strip_tags($_GET["username"]));
+			$uploaddir = '/usr/share/nginx/html/rev/img/'; 
+			$file = basename($_FILES['uploadedfile']['name']);
+			$uploadfile = $uploaddir . $file;
+			$stmt = $this->db->prepare("UPDATE business SET picture = ? WHERE business_name = ?");
+			$null = NULL;
+			$stmt->bind_param("bs",$null,$business_name);
+			if (move_uploaded_file($_FILES['uploadedfile']['tmp_name'], $uploadfile)) {
+				$stmt->send_long_data(0, file_get_contents($uploadfile));
+				$stmt->execute();
+				unlink($uploadfile);
+				sendResponse(200,"1");
+				return true;
+			}
+			sendResponse(400,"-1");
+    		return false;
+    	}
+    	sendResponse(400,"0");
+    	return false;   	
+    }
+
+    /*
     *	testCalvinsPhoto
     *
     *	@super_global_param String: PUSH_ID, String: username
