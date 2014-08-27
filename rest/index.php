@@ -196,7 +196,7 @@ class RestAPI {
 			/* fetch values */
 			
 			while ($stmt->fetch()) {
-				$output[]=array("username"=>$username,"name"=>$name,"role"=>$role,"email"=>$email,"phone"=>$phone,"picture"=>"http://experiencepush.com/rev/rest/?PUSH_ID=123&call=getUserPicture&username=".$username,"business_name"=>$business_name,"timestamp"=>$timestamp,"state"=>$state);
+				$output[]=array("username"=>$email,"name"=>$name,"role"=>$role,"email"=>$email,"phone"=>$phone,"picture"=>"http://experiencepush.com/rev/rest/?PUSH_ID=123&call=getUserPicture&username=".$username,"business_name"=>$business_name,"timestamp"=>$timestamp,"state"=>$state);
 			}
 		    $stmt->close();	
 			// headers for not caching the results
@@ -251,7 +251,7 @@ class RestAPI {
 				sendResponse(400,"-1");
 				return false;   
 		    }
-		    $username = stripslashes(strip_tags($_POST["username"]));
+		    $username = stripslashes(strip_tags($_POST["email"]));
 		    $password = md5(stripslashes(strip_tags($_POST["password"])));
 		    $email    = stripslashes(strip_tags($_POST["email"]));
 		    $name     = stripslashes(strip_tags($_POST["name"]));
@@ -422,14 +422,45 @@ class RestAPI {
 
 			$stmt->bind_result($picture);
 			if($stmt->fetch()){
-
-			header("Content-Type: image/png");
-			echo $picture; 
-			return true;
+				header("Content-Type: image/png");
+				echo $picture; 
+				return true;
 			}
     		sendResponse(400,"-1");
+    		return false;
    		}
    		sendResponse(400,'0');
+   		return false;
+   	}
+
+   	/*
+   	*	getBusinessPicture
+   	*
+   	*	@super_global_param String: PUSH_ID, String: business_name
+   	*
+   	*	gets the business picture associated with a business_name	
+   	*/
+   	function getBusinessPicture(){
+   		if(isset($_GET["PUSH_ID"])&&isset($_GET["business_name"])){
+   			if(!$this->checkPushID($_GET["PUSH_ID"])){
+  				sendResponse(400,'-1');
+    			return false;
+    		}
+   			$business_name = stripslashes(strip_tags($_GET["business_name"]));
+   			$stmt = $this->db->prepare("SELECT picture FROM business WHERE business_name = ?");
+   			$stmt->bind_param("s",$username);
+   			$stmt->execute();
+   			$stmt->store_result();
+   			$stmt->bind_result($picture);
+   			if($stmt->fetch()){
+				header("Content-Type: image/png");
+				echo $picture; 
+				return true;
+   			}
+   			sendResponse(400,"-1");
+   			return false;
+   		}
+   		sendResponse(400,"0");
    		return false;
    	}
 
