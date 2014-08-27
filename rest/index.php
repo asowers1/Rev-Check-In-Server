@@ -3,7 +3,6 @@ function getStatusCodeMessage($status)
 {
     // these could be stored in a .ini file and loaded
     // via parse_ini_file()... however, this will suffice
-    // for an example
     $codes = Array(
         100 => 'Continue',
         101 => 'Switching Protocols',
@@ -248,8 +247,8 @@ class RestAPI {
     */
     function addNewUser(){
 		if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["password"])&&isset($_POST["name"])&&isset($_POST["email"])&&isset($_POST["role"])&&isset($_POST["phone"])&&isset($_POST["code"])){
-		    if(!$this->checkPushID($_POST["PUSH_ID"])){
-				sendResponse(400,json_encode($json));
+		    if(!$this->checkPushID($_POST["PUSH_ID"])||$_POST["username"]=="-1"||$_POST["email"]=="-1"){
+				sendResponse(400,"-1");
 				return false;   
 		    }
 		    $username = stripslashes(strip_tags($_POST["username"]));
@@ -441,6 +440,5 @@ class RestAPI {
 // This is the first thing that gets called when this page is loaded
 // Creates a new instance of the RedeemAPI class and calls the redeem method
 $api = new RestAPI;
-$function = $_REQUEST["call"];
-$api->$function();
+$api->$_REQUEST["call"]();
 
