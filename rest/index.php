@@ -89,7 +89,7 @@ class RestAPI {
     *
     *	@PUSH_ID REST API key, @uuid the provided uuid for feting beacon credentials
     *
-    *
+    *	gets all beacons associated with a paticular uuid, saves them to a JSON array, and sends it out via HTTP
     */
     function getBeacon() {
 	if (isset($_GET["uuid"])) {
@@ -191,12 +191,13 @@ class RestAPI {
 				sendResponse(400,json_encode($json));
 				return false;   
 		    }
-		    $stmt = $this->db->prepare('SELECT username, name, role, email, phone, business_name, (SELECT timestamp FROM user_status WHERE user_id = (SELECT id FROM user WHERE username = username ) LIMIT 1), (SELECT state FROM user_status WHERE user_id = (SELECT id FROM user WHERE username = username ) LIMIT 1) FROM user');
+		    $stmt = $this->db->prepare('SELECT name, role, email, phone, business_name,(SELECT timestamp FROM user_status WHERE user_id = id ORDER BY timestamp DESC LIMIT 1) as timestamp, (SELECT state FROM user_status WHERE user_id = id ORDER BY timestamp DESC  LIMIT 1) as state FROM user');
 		    $stmt->execute();
-			$stmt->bind_result($username,$name,$role,$email,$phone,$business_name,$timestamp,$state);
+			$stmt->bind_result($name,$role,$email,$phone,$business_name,$timestamp,$state);
 			/* fetch values */
+			
 			while ($stmt->fetch()) {
-				$output[]=array($username,$name,$role,$email,$phone,$business_name,$timestamp,$state);
+				$output[]=array("username"=>$username,"name"=>$name,"role"=>$role,"email"=>$email,"phone"=>$phone,"picture"=>"http://experiencepush.com/rev/rest/?PUSH_ID=123&call=getUserPicture&username=".$username,"business_name"=>$business_name,"timestamp"=>$timestamp,"state"=>$state);
 			}
 		    $stmt->close();	
 			// headers for not caching the results
@@ -238,6 +239,13 @@ class RestAPI {
 	    return false;
     }
     
+    /*
+    *	addNewUser
+    *
+    *	@super_global_param String: PUSH_ID, String: username, String: password, String: name, String: email, String: role, String: phone, String: code
+    *
+    *	takes new user credentials and adds new user to the database
+    */
     function addNewUser(){
 		if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["password"])&&isset($_POST["name"])&&isset($_POST["email"])&&isset($_POST["role"])&&isset($_POST["phone"])&&isset($_POST["code"])){
 		    if(!$this->checkPushID($_POST["PUSH_ID"])){
@@ -290,6 +298,13 @@ class RestAPI {
 	    return false;
     }
 
+    /*
+    *	linkDeviceToUser
+    *
+    *	@super_gloabl_param String: PUSH_ID, String: username, String: device
+    *
+    *	links an iOS device APNS identifier to a user and writes changes to the database
+    */
     function linkDeviceToUser(){
     	if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["device"])){
     		if(!$this->checkPushID($_POST["PUSH_ID"])){
@@ -308,6 +323,13 @@ class RestAPI {
     	return false;
     }
 
+    /*
+    *	updateUserState
+    *
+    *	@super_global_param String: PUSH_ID, String: username, String: state
+    *
+    *	assosiates new state with specified user and writes changed state to the database
+    */
     function updateUserState(){
      	if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["state"])){
     		if(!$this->checkPushID($_POST["PUSH_ID"])){
@@ -325,7 +347,94 @@ class RestAPI {
     	sendResponse(400, '0');
     	return false;
     }
-	
+
+    /*
+    *	setUserPicture
+	*
+	*	@super_global_param String: PUSH_ID, String: username, BLOB: uploadedfile
+	*
+	*	takes an image and assosiates it to a user in the database
+	*/
+    function setUserPicture(){
+    	if(isset($_GET["PUSH_ID"])&&isset($_GET["username"])){
+    		if(!$this->checkPushID($_GET["PUSH_ID"])){
+    			sendResponse(400,'-1');
+    			return false;
+    		}
+    		$username = stripslashes(strip_tags($_GET["username"]));
+			$uploaddir = '/usr/share/nginx/html/rev/img/'; 
+			$file = basename($_FILES['uploadedfile']['name']);
+			$uploadfile = $uploaddir . $file;
+			$stmt = $this->db->prepare("UPDATE user SET picture = ? WHERE username = ?");
+			$null = NULL;
+			$stmt->bind_param("bs",$null,$username);
+			if (move_uploaded_file($_FILES['uploadedfile']['tmp_name'], $uploadfile)) {
+				$stmt->send_long_data(0, file_get_contents($uploadfile));
+				$stmt->execute();
+				unlink($uploadfile);
+				sendResponse(200,"1");
+				return true;
+			}
+			sendResponse(400,"-1");
+    		return false;
+    	}
+    	sendResponse(400,"0");
+    	return false;
+    }
+
+    /*
+    *	testCalvinsPhoto
+    *
+    *	@super_global_param String: PUSH_ID, String: username
+    *
+    *	get the picture associated with Calvin.chestnut.me.com
+    */
+    function testCalvinsPhoto(){
+		$stmt = $this->db->prepare("SELECT picture FROM user WHERE username = 'Calvin.chestnut.me.com'"); 
+
+		$stmt->execute();
+		$stmt->store_result();
+
+		$stmt->bind_result($picture);
+		$stmt->fetch();
+
+		header("Content-Type: image/png");
+		echo $picture; 
+    }
+
+   	/*
+   	*	getUserPicture
+   	*
+   	*	@super_global_param String: PUSH_ID, String: username
+   	*
+   	*	gets the picture assosiated with a user from the database
+   	*/
+   	function getUserPicture(){
+   		if(isset($_GET["PUSH_ID"])&&isset($_GET["username"])){
+    		if(!$this->checkPushID($_GET["PUSH_ID"])){
+    			sendResponse(400,'-1');
+    			return false;
+    		}
+    		$username = stripslashes(strip_tags($_GET["username"]));
+    		$stmt = $this->db->prepare("SELECT picture FROM user WHERE username = ?");
+    		$stmt->bind_param("s",$username);
+			$stmt->execute();
+			$stmt->store_result();
+
+			$stmt->bind_result($picture);
+			if($stmt->fetch()){
+
+			header("Content-Type: image/png");
+			echo $picture; 
+			return true;
+			}
+    		sendResponse(400,"-1");
+   		}
+   		sendResponse(400,'0');
+   		return false;
+   	}
+
+
     // end of RestAPI class
 }
  
