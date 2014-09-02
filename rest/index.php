@@ -196,7 +196,8 @@ class RestAPI {
 			/* fetch values */
 			
 			while ($stmt->fetch()) {
-				$output[]=array("username"=>$email,"name"=>$name,"role"=>$role,"email"=>$email,"phone"=>$phone,"picture"=>"http://experiencepush.com/rev/rest/?PUSH_ID=123&call=getUserPicture&username=".$username,"business_name"=>$business_name,"timestamp"=>$timestamp,"state"=>$state);
+				$picture = "http://experiencepush.com/rev/rest/?PUSH_ID=123&call=getUserPicture&username=".$email;
+				$output[]=array("username"=>$email,"name"=>$name,"role"=>$role,"email"=>$email,"phone"=>$phone,"picture"=>$picture,"business_name"=>$business_name,"timestamp"=>$timestamp,"state"=>$state);
 			}
 		    $stmt->close();	
 			// headers for not caching the results
@@ -266,8 +267,12 @@ class RestAPI {
 		   	$stmt->bind_result($business_name);
 		   	if($stmt->fetch()){
 		   		$business = $business_name;
+		   	}else{
+		   		sendResponse(400,"-2");
+		   		return false;
 		   	}
 		   	$stmt->close();
+		   	
 		    $stmt = $this->db->prepare('SELECT * FROM user WHERE username = ? OR name = ? OR email = ?');
 		    $stmt->bind_param("sss",$username,$name,$email);
 		    $stmt->execute();
@@ -335,9 +340,9 @@ class RestAPI {
 				sendResponse(400,"-1");
 				return false;   
 		    }
-		    $username = stripslashes(strip_tags($_POST["username"]));
+		   	$username = stripslashes(strip_tags($_POST["username"]));
 		    $state    = stripslashes(strip_tags($_POST["state"]));
-		    $stmt = $this->db->prepare("UPDATE user_status SET checked_in = ? WHERE user_id = (SELECT id FROM user WHERE username = ?)");
+		    $stmt = $this->db->prepare("INSERT INTO user_status (state, user_id) VALUES (?,(SELECT id FROM user WHERE username = ?))");
 		    $stmt->bind_param("ss",$state,$username);
 		    $stmt->execute();
 		    sendResponse(200, '1');
@@ -384,23 +389,23 @@ class RestAPI {
     /*
     *	setBusinessPicture
 	*
-	*	@super_global_param String: PUSH_ID, String: business_name, BLOB: uploadedfile
+	*	@super_global_param String: PUSH_ID, String: username, BLOB: uploadedfile
 	*
 	*	takes an image and assosiates it to a user in the database
 	*/
     function setBusinessPicture(){
-     	if(isset($_GET["PUSH_ID"])&&isset($_GET["business_name"])){
+     	if(isset($_GET["PUSH_ID"])&&isset($_GET["username"])){
     		if(!$this->checkPushID($_GET["PUSH_ID"])){
     			sendResponse(400,'-1');
     			return false;
     		}
-    		$business_name = stripslashes(strip_tags($_GET["username"]));
+    		$username = stripslashes(strip_tags($_GET["username"]));
 			$uploaddir = '/usr/share/nginx/html/rev/img/'; 
 			$file = basename($_FILES['uploadedfile']['name']);
 			$uploadfile = $uploaddir . $file;
-			$stmt = $this->db->prepare("UPDATE business SET picture = ? WHERE business_name = ?");
+			$stmt = $this->db->prepare("UPDATE business SET picture = ? WHERE business_name = (SELECT business_name q FROM user WHERE username = ?)");
 			$null = NULL;
-			$stmt->bind_param("bs",$null,$business_name);
+			$stmt->bind_param("bs",$null,$username);
 			if (move_uploaded_file($_FILES['uploadedfile']['tmp_name'], $uploadfile)) {
 				$stmt->send_long_data(0, file_get_contents($uploadfile));
 				$stmt->execute();
@@ -412,28 +417,8 @@ class RestAPI {
     		return false;
     	}
     	sendResponse(400,"0");
-    	return false;   	
-    }
-
-    /*
-    *	testCalvinsPhoto
-    *
-    *	@super_global_param String: PUSH_ID, String: username
-    *
-    *	get the picture associated with Calvin.chestnut.me.com
-    */
-    function testCalvinsPhoto(){
-		$stmt = $this->db->prepare("SELECT picture FROM user WHERE username = 'Calvin.chestnut.me.com'"); 
-
-		$stmt->execute();
-		$stmt->store_result();
-
-		$stmt->bind_result($picture);
-		$stmt->fetch();
-
-		header("Content-Type: image/png");
-		echo $picture; 
-    }
+    	return false;
+    }	
 
    	/*
    	*	getUserPicture
@@ -475,13 +460,13 @@ class RestAPI {
    	*	gets the business picture associated with a business_name	
    	*/
    	function getBusinessPicture(){
-   		if(isset($_GET["PUSH_ID"])&&isset($_GET["business_name"])){
+   		if(isset($_GET["PUSH_ID"])&&isset($_GET["username"])){
    			if(!$this->checkPushID($_GET["PUSH_ID"])){
   				sendResponse(400,'-1');
     			return false;
     		}
-   			$business_name = stripslashes(strip_tags($_GET["business_name"]));
-   			$stmt = $this->db->prepare("SELECT picture FROM business WHERE business_name = ?");
+   			$username = stripslashes(strip_tags($_GET["username"]));
+   			$stmt = $this->db->prepare("SELECT picture FROM business WHERE business_name = (SELECT business_name q FROM user WHERE username = ?)");
    			$stmt->bind_param("s",$username);
    			$stmt->execute();
    			$stmt->store_result();
