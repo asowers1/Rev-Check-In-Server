@@ -83,6 +83,10 @@ class RestAPI {
 		return true;
 	}
 
+	function cleanVariable($var){
+		return stripslashes(strip_tags($var));
+	}
+
     /*
     *	getBeacon
     *
@@ -478,6 +482,37 @@ class RestAPI {
    			}
    			sendResponse(400,"-1");
    			return false;
+   		}
+   		sendResponse(400,"0");
+   		return false;
+   	}
+
+   	/*
+   	*	updateUserPassword
+   	*
+   	*	@super_global_param String: username, String: oldPassword, String newPassword
+   	*
+   	*	updates a user's password on the database
+   	*/
+   	function updateUserPassword(){
+   		if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["oldPassword"])&&isset($_POST["newPasswordCheck"])&&isset($_POST["newPassword"])){
+   			if(!$this->checkPushID($_POST["PUSH_ID"])){
+  				sendResponse(400,'-1');
+    			return false;
+    		}
+   			$username    	  = $this->cleanVariable($_POST["username"]);
+   			$oldPassword 	  = md5($this->cleanVariable($_POST["oldPassword"]));
+   			$newPasswordCheck = md5($this->cleanVariable($_POST["newPasswordCheck"]));
+   			$newPassword 	  = md5($this->cleanVariable($_POST["newPassword"]));
+   			if($newPasswordCheck!=$newPassword){
+   				sendResponse(400,"-2");
+   				return false;
+   			}
+   			$stmt = $this->db->prepare("UPDATE user SET password = ? WHERE username = ?");
+   			$stmt->bind_param("ss",$newPassword,$username);
+   			$stmt->execute();
+   			sendResponse(200,"1");
+   			return true;
    		}
    		sendResponse(400,"0");
    		return false;
