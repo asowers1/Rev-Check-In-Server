@@ -518,6 +518,59 @@ class RestAPI {
    		return false;
    	}
 
+   	/*
+   	*	updateNameRolePhone
+   	*
+   	*	@super_global_param String:name, String: role, String: Phone
+   	*
+   	*	updates the name, role, and or phone in the database
+   	*/
+   	function updateNameRolePhone(){
+   		if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["name"])&&isset($_POST["role"])&&isset($_POST["phone"])){
+   			if(!$this->checkPushID($_POST["PUSH_ID"])){
+  				sendResponse(400,'-1');
+    			return false;
+    		}
+   			$username = $this->cleanVariable($_POST["username"]);
+   			$name 	  = $this->cleanVariable($_POST["name"]);
+   			$role 	  = $this->cleanVariable($_POST["role"]);
+   			$phone 	  = $this->cleanVariable($_POST["phone"]);
+   			$stmt = $this->db->prepare("UPDATE user SET name = ?, role = ?, phone = ? WHERE username = ?");
+   			$stmt->bind_param("ssss",$name,$role,$phone,$username);
+   			$stmt->execute();
+   			sendResponse(200,"1");
+   			return true;
+   		}
+   		sendResponse(400,"0");
+   		return false;   		
+   	}
+
+   	/*
+   	*	updateComanyBio
+   	*
+   	*	@super_global_param String: PUSH_ID, String: username, String: companyBio
+   	*
+   	*	updates the company bio that a user tied to in the database
+   	*/
+   	function updateComanyBio(){
+   		if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["companyBio"])){
+   			if(!$this->checkPushID($_POST["PUSH_ID"])){
+  				sendResponse(400,'-1');
+    			return false;
+    		}
+   			
+   			$username   = $this->cleanVariable($_POST["username"]);
+   			$companyBio = $this->cleanVariable($_POST["companyBio"]);
+   			
+   			$stmt = $this->db->prepare("UPDATE business SET bio = ? WHERE business_name = (SELECT business_name FROM user WHERE username = ?)");
+   			$stmt->bind_param("ss",$companyBio,$username);
+   			$stmt->execute();
+   			sendResponse(200,"1");
+   			return true;
+   		}
+   		sendResponse(400,"0");
+   		return false;  
+   	}
 
     // end of RestAPI class
 }
