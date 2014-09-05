@@ -572,6 +572,33 @@ class RestAPI {
    		return false;  
    	}
 
+   	function getCompanyBio(){
+	    if(isset($_GET["PUSH_ID"])&&isset($_GET["username"])){
+		    if(!$this->checkPushID($_GET["PUSH_ID"])){
+				sendResponse(400,"-1");
+				return false;   
+		    }
+		    $username = $this->cleanVariable($_GET["username"]);
+		    $stmt = $this->db->prepare('SELECT bio FROM business WHERE business_name = (SELECT business_name FROM user WHERE username = ?)');
+		    $stmt->bind_param("s",$username);
+		    $stmt->execute();
+			$stmt->bind_result($companyBio);
+			/* fetch values */
+			if ($stmt->fetch()) {
+				$output = $companyBio;
+			}
+		    $stmt->close();	
+			// headers for not caching the results
+			header('Cache-Control: no-cache, must-revalidate');
+			header('Expires: Mon, 26 Jul 2001 05:00:00 GMT');
+
+			sendResponse(200, $output);
+			return true;
+	    }
+	    sendResponse(400, "0"); 	
+	    return false;  		
+   	}
+
     // end of RestAPI class
 }
  
