@@ -339,15 +339,29 @@ class RestAPI {
     *	assosiates new state with specified user and writes changed state to the database
     */
     function updateUserState(){
-     	if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["state"])){
+     	if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["state"])&&isset($_POST["appTimestamp"])){
     		if(!$this->checkPushID($_POST["PUSH_ID"])){
 				sendResponse(400,"-1");
 				return false;   
 		    }
-		   	$username = stripslashes(strip_tags($_POST["username"]));
-		    $state    = stripslashes(strip_tags($_POST["state"]));
-		    $stmt = $this->db->prepare("INSERT INTO user_status (state, user_id) VALUES (?,(SELECT id FROM user WHERE username = ?))");
-		    $stmt->bind_param("ss",$state,$username);
+			$username     = $this->cleanVariable($_POST["username"]);
+		    $state        = $this->cleanVariable($_POST["state"]);
+		    $appTimestamp = $this->cleanVariable($_POST["appTimestamp"]);
+
+		    $stmt = $this->db->prepare("SELECT (SELECT state FROM user_status WHERE user_id = id ORDER BY timestamp DESC  LIMIT 1) as state FROM user WHERE username = ?");
+		    $stmt->bind_param("s",$username);
+		    $stmt->execute();
+		    $stmt->bind_result($oldState);
+		    if($stmt->fetch()){
+		    	if($oldState == $state){
+		    		sendResponse(200,"-2");
+		    		return false;
+		    	}
+		    }
+		    $stmt->close();
+
+		    $stmt = $this->db->prepare("INSERT INTO user_status (state, user_id, appTimestamp) VALUES (?,(SELECT id FROM user WHERE username = ?),?)");
+		    $stmt->bind_param("sss",$state,$username,$appTimestamp);
 		    $stmt->execute();
 		    sendResponse(200, '1');
 		    return true;
