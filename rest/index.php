@@ -87,6 +87,7 @@ class RestAPI {
 		return stripslashes(strip_tags($var));
 	}
 
+
     /*
     *	getBeacon
     *
@@ -314,15 +315,27 @@ class RestAPI {
     *	links an iOS device APNS identifier to a user and writes changes to the database
     */
     function linkDeviceToUser(){
-    	if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["device"])){
+    	if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["device_id"])){
     		if(!$this->checkPushID($_POST["PUSH_ID"])){
 				sendResponse(400,"-1");
 				return false;   
 		    }
-		    $username = stripslashes(strip_tags($_POST["username"]));
-		    $device   = stripslashes(strip_tags($_POST["device"]));
-		    $stmt = $this->db->prepare("UPDATE user_device SET device_id = ? WHERE user_id = (SELECT id FROM user WHERE username = ?)");
+		    $username = $this->cleanVariable($_POST["username"]);
+		    $device   = $this->cleanVariable($_POST["device_id"]);
+
+		    //$stmt = $this->db->prepare("UPDATE user_device SET device_id = ? WHERE user_id = (SELECT id FROM user WHERE username = ?)");
+		    $stmt = $this->db->prepare("SELECT * FROM user_device WHERE device_id = ? AND user_id = (SELECT id FROM user WHERE username = ?)");
 		    $stmt->bind_param("ss",$device,$username);
+		    $stmt->execute();
+		    
+		    if($stmt->fetch()){
+		    	sendResponse(400,"-2");
+		    	return false;
+		    }
+		    $stmt->close();
+		    
+		    $stmt = $this->db->prepare('INSERT INTO user_device (user_id,device_id) VALUES((SELECT id from user where username = ?),?)');
+		    $stmt->bind_param("ss",$username,$device);
 		    $stmt->execute();
 		    sendResponse(200, '1');
 		    return true;
@@ -502,6 +515,41 @@ class RestAPI {
    	}
 
    	/*
+   	*	getUserDeviceTokens
+   	*
+   	*
+   	*
+   	*	DO NOT USE FOR PRODUCTION PURPOSES - potential personal data leak
+   	*/
+   	function getUserDeviceTokens(){
+ 		$json;
+	    if(isset($_GET["PUSH_ID"])){
+		    if(!$this->checkPushID($_GET["PUSH_ID"])){
+				sendResponse(400,json_encode($json));
+				return false;   
+		    }
+		    $stmt = $this->db->prepare('SELECT (SELECT username FROM user WHERE id = user_device.user_id), device_id FROM user_device');
+		    $stmt->execute();
+			$stmt->bind_result($username,$device_id);
+			/* fetch values */
+			
+			while ($stmt->fetch()) {
+				$output[]=array("username"=>$username,"device_id"=>$device_id);
+			}
+		    $stmt->close();	
+			// headers for not caching the results
+			header('Cache-Control: no-cache, must-revalidate');
+			header('Expires: Mon, 26 Jul 2001 05:00:00 GMT');
+			// headers to tell that result is JSON
+			header('Content-type: application/json');
+			sendResponse(200, json_encode($output));
+			return true;
+	    }
+	    sendResponse(400, json_encode($output)); 	
+	    return false;  		
+   	}
+
+   	/*
    	*	updateUserPassword
    	*
    	*	@super_global_param String: username, String: oldPassword, String newPassword
@@ -613,11 +661,58 @@ class RestAPI {
 	    return false;  		
    	}
 
+   	/*
+   	*	removeUserDeviceId
+   	*
+   	*	@super_global_param String: $_POST["PUSH_ID"], String: $_POST["username"], String: $_POST["device_id"]
+   	*
+   	*	removes the a device_id token for APNS from database
+   	*/
+   	function removeUserDeviceId(){
+   		if(isset($_POST["PUSH_ID"])&&isset($_POST["username"])&&isset($_POST["device_id"])){
+   			if(!$this->checkPushID($_POST["PUSH_ID"])){
+   				sendResponse(400,"-1");
+   				return false;
+   			}
+   			$username  = $this->cleanVariable($_POST["username"]);
+   			$device_id = $this->cleanVariable($_POST["device_id"]);
+
+   			$stmt = $this->db->prepare('SELECT id FROM user WHERE username = ?');
+		    $stmt->bind_param("s",$username);
+		    $stmt->execute();
+			$stmt->bind_result($user_id);
+
+			/* check for result */
+			if ($stmt->fetch()) {
+				//sendResponse(200,"test");
+				//return true;
+				$stmt->close();
+				$stmt = $this->db->prepare('DELETE FROM user_device WHERE device_id = ? AND user_id = (SELECT id FROM user WHERE username = ?)');
+				
+				$stmt->bind_param("ss",$device_id,$username);
+
+				$stmt->execute();
+				sendResponse(200,"1");
+				return true;
+			}
+			sendResponse(400,"-2");
+			return false;
+   		}
+   		sendResponse(400,"0");
+   		return false;
+   	}
+
+
+
     // end of RestAPI class
 }
  
 // This is the first thing that gets called when this page is loaded
 // Creates a new instance of the RedeemAPI class and calls the redeem method
 $api = new RestAPI;
-$api->$_REQUEST["call"]();
+if(isset($_REQUEST["call"])){
+	$api->$_REQUEST["call"]();
+}else{
+	sendResponse(400,"call missing");
+}
 
