@@ -1,4 +1,5 @@
 <?hh
+
 function getStatusCodeMessage($status)
 {
     // these could be stored in a .ini file and loaded
@@ -264,6 +265,7 @@ class RestAPI {
 		    $phone	  = stripslashes(strip_tags($_POST["phone"]));
 		    $role     = stripslashes(strip_tags($_POST["role"]));
 		    $code     = stripslashes(strip_tags($_POST["code"]));
+		    //$device   = $this->cleanVariable($_POST["device_id"]);
 		    $business = '';
 
 		    $stmt = $this->db->prepare("SELECT business_name FROM business WHERE business_code = ?");
@@ -294,10 +296,29 @@ class RestAPI {
 		    $stmt->bind_param("s",$username);
 		    $stmt->execute();
 
-		    $stmt = $this->db->prepare('INSERT INTO user_device (user_id,device_id) values((SELECT id from user where username = ?),0)');
-		    $stmt->bind_param("s",$username);
+		    // check old user device token
+		    /*
+			$stmt = $this->db->prepare('SELECT device_id FROM user_device WHERE user_device = ?');
+		    $stmt->bind_param("s",$device);
 		    $stmt->execute();
+			$stmt->bind_result($user_device);
 
+			if ($stmt->fetch()) {
+				//sendResponse(200,"test");
+				//return true;
+				$stmt->close();
+				$stmt = $this->db->prepare('DELETE FROM user_device WHERE device_id = ?');
+				
+				$stmt->bind_param("s",$device_id);
+
+				$stmt->execute();
+			}
+			$stmt->close();
+
+		    $stmt = $this->db->prepare('INSERT INTO user_device (user_id,device_id) values((SELECT id from user where username = ?),?)');
+		    $stmt->bind_param("ss",$username,$device);
+		    $stmt->execute();
+		    */
 
 
 			sendResponse(200, '1');
@@ -376,6 +397,24 @@ class RestAPI {
 		    $stmt = $this->db->prepare("INSERT INTO user_status (state, user_id, appTimestamp) VALUES (?,(SELECT id FROM user WHERE username = ?),?)");
 		    $stmt->bind_param("sss",$state,$username,$appTimestamp);
 		    $stmt->execute();
+		    $stmt->close();
+
+		    $stmt = $this->db->prepare("SELECT device_id FROM user_device WHERE device_id != '0' AND  device_id != '-1'");
+		    $stmt->execute();
+		    $stmt->bind_result($device_id);
+		    while($stmt->fetch()){
+				if($state == "1"){
+		    		$notification = $username . " has checked in";
+		    		//echo $notification . " ". $device_id."\n";
+		    		//exec("test.php");
+		    	}else if($state == "0"){
+		    		$notification = $username . " has checked out";
+		    		//echo $notification . " ". $device_id."\n";
+		    		//exec("test.php");
+		    		
+		    	}
+		    	
+		    }
 		    sendResponse(200, '1');
 		    return true;
     	}
@@ -444,7 +483,7 @@ class RestAPI {
 				sendResponse(200,"1");
 				return true;
 			}
-			sendResponse(400,"-1");
+			sendResponse(400,"-2");
     		return false;
     	}
     	sendResponse(400,"0");
